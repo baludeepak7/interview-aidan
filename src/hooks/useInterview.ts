@@ -11,6 +11,7 @@ export const useInterview = (sessionId: string) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
   const speechTimeoutRef = useRef<NodeJS.Timeout>();
   const messageIdCounter = useRef(0);
   const initializationRef = useRef(false);
@@ -65,8 +66,10 @@ export const useInterview = (sessionId: string) => {
       addMessage('ai', initialQuestion);
       
       // Speak the question
+      setIsAISpeaking(true);
       console.log('🔊 AI speaking question...');
       await audioService.speakText(initialQuestion);
+      setIsAISpeaking(false);
       
       // Now wait for candidate response
       console.log('👂 Waiting for candidate response...');
@@ -83,12 +86,13 @@ export const useInterview = (sessionId: string) => {
   }, [addMessage, isInitialized]);
 
   const handleSpeechResult = useCallback(async (transcript: string) => {
-    if (!transcript.trim() || !isWaitingForResponse || state !== 'recording' || !isMicEnabled) {
+    if (!transcript.trim() || !isWaitingForResponse || state !== 'recording' || !isMicEnabled || isAISpeaking) {
       console.log('🚫 Ignoring speech result:', { 
         hasTranscript: !!transcript.trim(), 
         isWaiting: isWaitingForResponse, 
-        state, 
-        micEnabled: isMicEnabled 
+        state,
+        micEnabled: isMicEnabled,
+        aiSpeaking: isAISpeaking
       });
       return;
     }
@@ -152,16 +156,20 @@ export const useInterview = (sessionId: string) => {
       addMessage('ai', evaluation.feedback);
       
       // Speak the feedback
+      setIsAISpeaking(true);
       console.log('🔊 AI speaking feedback...');
       await audioService.speakText(evaluation.feedback);
+      setIsAISpeaking(false);
 
       if (!evaluation.isComplete && evaluation.nextQuestion) {
         // Add and speak the next question
         console.log('❓ Next question:', evaluation.nextQuestion);
         addMessage('ai', evaluation.nextQuestion);
         
+        setIsAISpeaking(true);
         console.log('🔊 AI speaking next question...');
         await audioService.speakText(evaluation.nextQuestion);
+        setIsAISpeaking(false);
         
         // Wait for next response
         if (isMicEnabled) {
@@ -197,6 +205,7 @@ export const useInterview = (sessionId: string) => {
     console.log('🛑 Stopping all audio...');
     audioService.stopSpeaking();
     audioService.stopRecording();
+    setIsAISpeaking(false);
     if (speechTimeoutRef.current) {
       clearTimeout(speechTimeoutRef.current);
     }

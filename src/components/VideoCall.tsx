@@ -33,7 +33,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   }, []);
 
   useEffect(() => {
-    if (isMicOn && mediaInitialized) {
+    if (isMicOn && mediaInitialized && state !== 'playing-question') {
       mediaService.startSpeechRecognition((transcript) => {
         setCurrentTranscript(transcript);
         onTranscript(transcript);

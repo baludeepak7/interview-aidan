@@ -38,7 +38,10 @@ class AudioService {
         utterance.pitch = 1;
         utterance.volume = 0.8;
 
-        utterance.onend = () => resolve();
+        utterance.onend = () => {
+          // Add a small delay to ensure speech has completely finished
+          setTimeout(() => resolve(), 500);
+        };
         utterance.onerror = (event) => {
           // Don't reject on interrupted error if we cancelled it
           if (event.error === 'interrupted') {
@@ -49,7 +52,7 @@ class AudioService {
         };
 
         this.synthesis.speak(utterance);
-      }, 100);
+      }, 200);
     });
   }
 
