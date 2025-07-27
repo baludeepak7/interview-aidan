@@ -26,7 +26,6 @@ export const InterviewPage: React.FC = () => {
     messages,
     currentTranscript,
     isInitialized,
-    isInitializing,
     isWaitingForResponse,
     isMicEnabled,
     initializeInterview,
@@ -42,17 +41,10 @@ export const InterviewPage: React.FC = () => {
       return;
     }
 
-    if (!isInitialized && !isInitializing) {
-      initializeInterview();
+    if (!isInitialized) {
+      initializeInterview(sessionId);
     }
-  }, [sessionId, isInitialized, isInitializing, navigate]);
-
-  // Separate effect for initialization that only runs once
-  useEffect(() => {
-    if (sessionId && !isInitialized && !isInitializing) {
-      initializeInterview();
-    }
-  }, []); // Empty dependency array - only runs once on mount
+  }, [sessionId, isInitialized, initializeInterview, navigate]);
 
   useEffect(() => {
     return () => {
@@ -115,7 +107,7 @@ export const InterviewPage: React.FC = () => {
     return null;
   }
 
-  if ((!isInitialized && !isInitializing) || (isInitializing && state === 'idle')) {
+  if (!isInitialized) {
     return (
       <div className="interview-loading min-vh-100 d-flex align-items-center justify-content-center bg-teams-dark">
         <div className="text-center text-white">

@@ -11,9 +11,9 @@ export const useInterview = (sessionId: string) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(true);
-  const [isInitializing, setIsInitializing] = useState(false);
   const speechTimeoutRef = useRef<NodeJS.Timeout>();
   const messageIdCounter = useRef(0);
+  const initializationRef = useRef(false);
 
   const generateUniqueId = useCallback((type: 'ai' | 'candidate') => {
     messageIdCounter.current += 1;
@@ -46,15 +46,15 @@ export const useInterview = (sessionId: string) => {
       console.log('🎤 Mic enabled during recording - restarting speech recognition');
     }
   }, [state, isWaitingForResponse]);
-  const initializeInterview = useCallback(async () => {
-    if (isInitializing || isInitialized) {
+  const initializeInterview = useCallback(async (sessionId: string) => {
+    if (initializationRef.current || isInitialized) {
       console.log('🚫 Interview already initializing or initialized');
       return;
     }
 
     try {
       console.log('🚀 Starting interview initialization...');
-      setIsInitializing(true);
+      initializationRef.current = true;
       setState('playing-question');
       
       // Get the first question
@@ -73,15 +73,14 @@ export const useInterview = (sessionId: string) => {
       setState('recording');
       setIsWaitingForResponse(true);
       setIsInitialized(true);
-      setIsInitializing(false);
       
     } catch (error) {
       console.error('❌ Failed to initialize interview:', error);
       toast.error('Failed to start interview. Please refresh and try again.');
       setState('idle');
-      setIsInitializing(false);
+      initializationRef.current = false;
     }
-  }, [addMessage, isInitializing, isInitialized]);
+  }, [addMessage, isInitialized]);
 
   const handleSpeechResult = useCallback(async (transcript: string) => {
     if (!transcript.trim() || !isWaitingForResponse || state !== 'recording' || !isMicEnabled) {
@@ -211,7 +210,6 @@ export const useInterview = (sessionId: string) => {
     messages,
     currentTranscript,
     isInitialized,
-    isInitializing,
     isWaitingForResponse,
     isMicEnabled,
     initializeInterview,
