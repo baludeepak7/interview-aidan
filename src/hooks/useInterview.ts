@@ -1,0 +1,168 @@
+import { useState, useCallback, useRef } from 'react';
+import { Message, InterviewState, EvaluationResponse } from '../types/interview';
+import { audioService } from '../services/audioService';
+import { apiService } from '../services/apiService';
+import { toast } from 'react-toastify';
+
+export const useInterview = (sessionId: string) => {
+  const [state, setState] = useState<InterviewState>('idle');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const speechTimeoutRef = useRef<NodeJS.Timeout>();
+  const messageIdCounter = useRef(0);
+
+  const generateUniqueId = useCallback((type: 'ai' | 'candidate') => {
+    messageIdCounter.current += 1;
+    return `${type}_${Date.now()}_${messageIdCounter.current}_${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
+
+  const addMessage = useCallback((type: 'ai' | 'candidate', content: string) => {
+    const message: Message = {
+      id: generateUniqueId(type),
+      type,
+      content,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, message]);
+    return message;
+  }, [generateUniqueId]);
+
+  const initializeInterview = useCallback(async () => {
+    try {
+      console.log('🚀 Starting interview initialization...');
+      setState('playing-question');
+      
+      // Get the first question
+      const initialQuestion = await apiService.getInitialQuestion();
+      console.log('📝 Got initial question:', initialQuestion);
+      
+      // Add AI message
+      addMessage('ai', initialQuestion);
+      
+      // Speak the question
+      console.log('🔊 AI speaking question...');
+      await audioService.speakText(initialQuestion);
+      
+      // Now wait for candidate response
+      console.log('👂 Waiting for candidate response...');
+      setState('recording');
+      setIsWaitingForResponse(true);
+      setIsInitialized(true);
+      
+    } catch (error) {
+      console.error('❌ Failed to initialize interview:', error);
+      toast.error('Failed to start interview. Please refresh and try again.');
+      setState('idle');
+    }
+  }, [addMessage]);
+
+  const handleSpeechResult = useCallback(async (transcript: string) => {
+    if (!transcript.trim() || !isWaitingForResponse || state !== 'recording') {
+      return;
+    }
+
+    console.log('🎤 Speech detected:', transcript);
+    
+    // Clear any existing timeout
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current);
+    }
+
+    // Update current transcript for real-time display
+    setCurrentTranscript(transcript);
+
+    // Set a timeout to auto-submit after 3 seconds of silence (increased from 2)
+    speechTimeoutRef.current = setTimeout(async () => {
+      console.log('⏰ Auto-submitting after silence timeout');
+      await submitAnswer(transcript);
+    }, 3000); // Increased to 3 seconds for more comfortable timing
+  }, [isWaitingForResponse]);
+
+  const submitAnswer = useCallback(async (answer: string) => {
+    if (!answer.trim() || !isWaitingForResponse) {
+      return;
+    }
+
+    try {
+      console.log('📤 Submitting answer:', answer);
+      setState('evaluating');
+      setIsWaitingForResponse(false);
+      setCurrentTranscript('');
+
+      // Add candidate's response
+      addMessage('candidate', answer);
+
+      // Get the last AI question for context
+      const lastAiMessage = messages.filter(m => m.type === 'ai').pop();
+      
+      // Evaluate the answer
+      console.log('🤖 AI evaluating response...');
+      const evaluation = await apiService.evaluateAnswer(
+        sessionId,
+        lastAiMessage?.content || '',
+        answer
+      );
+
+      console.log('📊 Evaluation result:', evaluation);
+
+      // Add AI feedback
+      setState('playing-question');
+      addMessage('ai', evaluation.feedback);
+      
+      // Speak the feedback
+      console.log('🔊 AI speaking feedback...');
+      await audioService.speakText(evaluation.feedback);
+
+      if (!evaluation.isComplete && evaluation.nextQuestion) {
+        // Add and speak the next question
+        console.log('❓ Next question:', evaluation.nextQuestion);
+        addMessage('ai', evaluation.nextQuestion);
+        
+        console.log('🔊 AI speaking next question...');
+        await audioService.speakText(evaluation.nextQuestion);
+        
+        // Wait for next response
+        console.log('👂 Waiting for next response...');
+        setState('recording');
+        setIsWaitingForResponse(true);
+      } else {
+        // Interview completed
+        console.log('✅ Interview completed!');
+        setState('idle');
+        toast.success('Interview completed! Thank you for your time.');
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to submit answer:', error);
+      toast.error('Failed to process your response. Please try again.');
+      setState('recording');
+      setIsWaitingForResponse(true);
+    }
+  }, [sessionId, messages, addMessage, isWaitingForResponse]);
+
+  const stopAllAudio = useCallback(() => {
+    console.log('🛑 Stopping all audio...');
+    audioService.stopSpeaking();
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current);
+    }
+    setState('idle');
+    setIsWaitingForResponse(false);
+    setCurrentTranscript('');
+  }, []);
+
+  return {
+    state,
+    messages,
+    currentTranscript,
+    isInitialized,
+    isWaitingForResponse,
+    initializeInterview,
+    submitAnswer,
+    stopAllAudio,
+    handleSpeechResult,
+    setCurrentTranscript
+  };
+};
