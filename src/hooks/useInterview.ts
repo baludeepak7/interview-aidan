@@ -11,6 +11,7 @@ export const useInterview = (sessionId: string) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
   const speechTimeoutRef = useRef<NodeJS.Timeout>();
   const messageIdCounter = useRef(0);
 
@@ -46,8 +47,14 @@ export const useInterview = (sessionId: string) => {
     }
   }, [state, isWaitingForResponse]);
   const initializeInterview = useCallback(async () => {
+    if (isInitializing || isInitialized) {
+      console.log('🚫 Interview already initializing or initialized');
+      return;
+    }
+
     try {
       console.log('🚀 Starting interview initialization...');
+      setIsInitializing(true);
       setState('playing-question');
       
       // Get the first question
@@ -66,13 +73,15 @@ export const useInterview = (sessionId: string) => {
       setState('recording');
       setIsWaitingForResponse(true);
       setIsInitialized(true);
+      setIsInitializing(false);
       
     } catch (error) {
       console.error('❌ Failed to initialize interview:', error);
       toast.error('Failed to start interview. Please refresh and try again.');
       setState('idle');
+      setIsInitializing(false);
     }
-  }, [addMessage]);
+  }, [addMessage, isInitializing, isInitialized]);
 
   const handleSpeechResult = useCallback(async (transcript: string) => {
     if (!transcript.trim() || !isWaitingForResponse || state !== 'recording' || !isMicEnabled) {
@@ -202,6 +211,7 @@ export const useInterview = (sessionId: string) => {
     messages,
     currentTranscript,
     isInitialized,
+    isInitializing,
     isWaitingForResponse,
     isMicEnabled,
     initializeInterview,
