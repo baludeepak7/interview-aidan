@@ -35,18 +35,25 @@ export const useInterview = (sessionId: string) => {
   const handleMicToggle = useCallback((enabled: boolean) => {
     setIsMicEnabled(enabled);
     
+    console.log('🎤 Mic toggled:', enabled, 'Current state:', state);
+    
     if (!enabled) {
-      // Mic turned off - stop any ongoing speech recognition
-      audioService.stopRecording();
+      // Mic turned off - clear transcript and stop any pending submissions
       if (speechTimeoutRef.current) {
         clearTimeout(speechTimeoutRef.current);
       }
       setCurrentTranscript('');
-    } else if (enabled && state === 'recording' && isWaitingForResponse) {
-      // Mic turned on during recording state - restart speech recognition
-      console.log('🎤 Mic enabled during recording - restarting speech recognition');
+      
+      // If we were waiting for response, stay in idle until mic is re-enabled
+      if (isWaitingForResponse) {
+        setState('idle');
+      }
+    } else if (enabled && isWaitingForResponse && !isAISpeaking) {
+      // Mic turned on and we're waiting for response - start recording
+      console.log('🎤 Mic enabled - starting recording state');
+      setState('recording');
     }
-  }, [state, isWaitingForResponse]);
+  }, [state, isWaitingForResponse, isAISpeaking]);
   const initializeInterview = useCallback(async (sessionId: string) => {
     if (initializationRef.current || isInitialized) {
       console.log('🚫 Interview already initializing or initialized');

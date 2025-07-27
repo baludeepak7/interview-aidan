@@ -53,16 +53,10 @@ export const InterviewPage: React.FC = () => {
   }, [stopAllAudio]);
 
   const handleMicToggle = (enabled: boolean) => {
-    // Update the interview state first
     interviewHandleMicToggle(enabled);
     
-    // Then show appropriate toast messages
     if (enabled) {
-      if (isWaitingForResponse) {
-        toast.info('Microphone enabled - speak your answer');
-      } else {
-        toast.info('Microphone enabled');
-      }
+      toast.info('Microphone enabled');
     } else {
       toast.info('Microphone muted');
     }

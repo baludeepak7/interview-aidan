@@ -33,16 +33,16 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   }, []);
 
   useEffect(() => {
-    if (isMicOn && mediaInitialized && state !== 'playing-question') {
+    // Only start speech recognition if mic is on, media is initialized, 
+    // we're in recording state, and not during AI speaking
+    if (isMicOn && mediaInitialized && state === 'recording') {
       mediaService.startSpeechRecognition((transcript) => {
         setCurrentTranscript(transcript);
         onTranscript(transcript);
       });
     } else {
       mediaService.stopSpeechRecognition();
-      if (!isMicOn) {
-        setCurrentTranscript('');
-      }
+      setCurrentTranscript('');
     }
   }, [isMicOn, mediaInitialized, state, onTranscript]);
 
@@ -65,6 +65,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const handleMicToggle = () => {
     const newState = mediaService.toggleAudio();
     setIsMicOn(newState);
+    setCurrentTranscript(''); // Clear transcript when toggling mic
     onMicToggle(newState);
   };
 

@@ -94,10 +94,8 @@ class MediaService {
         const isEnabled = audioTracks[0].enabled;
         audioTracks[0].enabled = !isEnabled;
         
-        // Start/stop speech recognition based on audio state
-        if (!isEnabled) {
-          this.startSpeechRecognition();
-        } else {
+        // Stop speech recognition when audio is disabled
+        if (isEnabled) {
           this.stopSpeechRecognition();
         }
         
