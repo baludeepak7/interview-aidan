@@ -189,7 +189,7 @@
 
 .meeting-controls {
   z-index: 1000;
-  margin-bottom: 2rem;
+  margin-bottom: 4rem;
 }
 
 .controls-container {
@@ -278,10 +278,11 @@
   
   .meeting-controls {
     position: fixed;
-    bottom: 20px;
+    bottom: 60px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 1050;
+    margin-bottom: 0;
   }
 }
 
@@ -302,6 +303,10 @@
   .btn-circle {
     width: 40px !important;
     height: 40px !important;
+  }
+  
+  .meeting-controls {
+    bottom: 40px;
   }
 }
 
