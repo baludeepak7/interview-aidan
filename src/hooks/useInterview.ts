@@ -10,6 +10,7 @@ export const useInterview = (sessionId: string) => {
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
   const speechTimeoutRef = useRef<NodeJS.Timeout>();
   const messageIdCounter = useRef(0);
 
@@ -29,6 +30,21 @@ export const useInterview = (sessionId: string) => {
     return message;
   }, [generateUniqueId]);
 
+  const handleMicToggle = useCallback((enabled: boolean) => {
+    setIsMicEnabled(enabled);
+    
+    if (!enabled) {
+      // Mic turned off - stop any ongoing speech recognition
+      audioService.stopRecording();
+      if (speechTimeoutRef.current) {
+        clearTimeout(speechTimeoutRef.current);
+      }
+      setCurrentTranscript('');
+    } else if (enabled && state === 'recording' && isWaitingForResponse) {
+      // Mic turned on during recording state - restart speech recognition
+      console.log('🎤 Mic enabled during recording - restarting speech recognition');
+    }
+  }, [state, isWaitingForResponse]);
   const initializeInterview = useCallback(async () => {
     try {
       console.log('🚀 Starting interview initialization...');
@@ -59,7 +75,13 @@ export const useInterview = (sessionId: string) => {
   }, [addMessage]);
 
   const handleSpeechResult = useCallback(async (transcript: string) => {
-    if (!transcript.trim() || !isWaitingForResponse || state !== 'recording') {
+    if (!transcript.trim() || !isWaitingForResponse || state !== 'recording' || !isMicEnabled) {
+      console.log('🚫 Ignoring speech result:', { 
+        hasTranscript: !!transcript.trim(), 
+        isWaiting: isWaitingForResponse, 
+        state, 
+        micEnabled: isMicEnabled 
+      });
       return;
     }
 
@@ -78,10 +100,15 @@ export const useInterview = (sessionId: string) => {
       console.log('⏰ Auto-submitting after silence timeout');
       await submitAnswer(transcript);
     }, 3000); // Increased to 3 seconds for more comfortable timing
-  }, [isWaitingForResponse]);
+  }, [isWaitingForResponse, state, isMicEnabled]);
 
   const submitAnswer = useCallback(async (answer: string) => {
-    if (!answer.trim() || !isWaitingForResponse) {
+    if (!answer.trim() || !isWaitingForResponse || !isMicEnabled) {
+      console.log('🚫 Cannot submit answer:', { 
+        hasAnswer: !!answer.trim(), 
+        isWaiting: isWaitingForResponse, 
+        micEnabled: isMicEnabled 
+      });
       return;
     }
 
@@ -90,6 +117,11 @@ export const useInterview = (sessionId: string) => {
       setState('evaluating');
       setIsWaitingForResponse(false);
       setCurrentTranscript('');
+      
+      // Clear any pending timeouts
+      if (speechTimeoutRef.current) {
+        clearTimeout(speechTimeoutRef.current);
+      }
 
       // Add candidate's response
       addMessage('candidate', answer);
@@ -124,9 +156,14 @@ export const useInterview = (sessionId: string) => {
         await audioService.speakText(evaluation.nextQuestion);
         
         // Wait for next response
-        console.log('👂 Waiting for next response...');
-        setState('recording');
-        setIsWaitingForResponse(true);
+        if (isMicEnabled) {
+          console.log('👂 Waiting for next response...');
+          setState('recording');
+          setIsWaitingForResponse(true);
+        } else {
+          console.log('🎤 Mic disabled - staying in idle state');
+          setState('idle');
+        }
       } else {
         // Interview completed
         console.log('✅ Interview completed!');
@@ -137,14 +174,21 @@ export const useInterview = (sessionId: string) => {
     } catch (error) {
       console.error('❌ Failed to submit answer:', error);
       toast.error('Failed to process your response. Please try again.');
-      setState('recording');
-      setIsWaitingForResponse(true);
+      
+      // Only return to recording state if mic is enabled
+      if (isMicEnabled) {
+        setState('recording');
+        setIsWaitingForResponse(true);
+      } else {
+        setState('idle');
+      }
     }
-  }, [sessionId, messages, addMessage, isWaitingForResponse]);
+  }, [sessionId, messages, addMessage, isWaitingForResponse, isMicEnabled]);
 
   const stopAllAudio = useCallback(() => {
     console.log('🛑 Stopping all audio...');
     audioService.stopSpeaking();
+    audioService.stopRecording();
     if (speechTimeoutRef.current) {
       clearTimeout(speechTimeoutRef.current);
     }
@@ -159,10 +203,12 @@ export const useInterview = (sessionId: string) => {
     currentTranscript,
     isInitialized,
     isWaitingForResponse,
+    isMicEnabled,
     initializeInterview,
     submitAnswer,
     stopAllAudio,
     handleSpeechResult,
-    setCurrentTranscript
+    setCurrentTranscript,
+    handleMicToggle
   };
 };
