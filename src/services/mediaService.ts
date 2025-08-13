@@ -4,6 +4,7 @@ class MediaService {
   private recognition: SpeechRecognition | null = null;
   private isRecognitionActive = false;
   private onTranscriptCallback: ((text: string) => void) | null = null;
+  private transcriptBuffer: string = ''; 
 
   constructor() {
     this.initializeSpeechRecognition();
@@ -22,20 +23,24 @@ class MediaService {
       this.recognition.lang = 'en-US';
       
       this.recognition.onresult = (event) => {
-        let finalTranscript = '';
+        let newFinal = '';
         let interimTranscript = '';
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcript;
+            newFinal += transcript;
           } else {
             interimTranscript += transcript;
           }
         }
+
+      if (newFinal) {
+        this.transcriptBuffer += ' ' + newFinal;
+      }
         
-        if (finalTranscript && this.onTranscriptCallback) {
-          this.onTranscriptCallback(finalTranscript);
+        if (this.onTranscriptCallback) {
+          this.onTranscriptCallback((this.transcriptBuffer + ' ' + interimTranscript).trim());
         }
       };
 
@@ -45,6 +50,10 @@ class MediaService {
     }
   }
 
+   clearTranscriptBuffer() {
+    this.transcriptBuffer = '';
+  }
+  
   async initializeMedia(): Promise<{ video: boolean; audio: boolean }> {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
@@ -119,6 +128,7 @@ class MediaService {
       this.isRecognitionActive = false;
     }
   }
+
 async speakText(base64String: string): Promise<void> {
   // Decode base64 → Uint8Array
   const bytes = Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
