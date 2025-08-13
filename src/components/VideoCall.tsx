@@ -19,7 +19,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   onEndCall,
   onTranscript
 }) => {
-  const [isMicOn, setIsMicOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [mediaInitialized, setMediaInitialized] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
@@ -63,12 +63,18 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }
   };
 
-  const handleMicToggle = () => {
-    const newState = mediaService.toggleAudio();
-    setIsMicOn(newState);
-    setCurrentTranscript(''); // Clear transcript when toggling mic
-    onMicToggle(newState);
-  };
+  const handleMicToggle = async () => {
+  if (!isMicOn) {
+    // First turning ON → ensure mic permission for this origin
+    await mediaService.initializeMedia();
+    mediaService.clearTranscriptBuffer();
+  }
+
+  const newState = mediaService.toggleAudio();
+  setIsMicOn(newState);
+  setCurrentTranscript(''); // Clear transcript when toggling mic
+  onMicToggle(newState);
+};
 
   const handleVideoToggle = () => {
     const newState = mediaService.toggleVideo();
