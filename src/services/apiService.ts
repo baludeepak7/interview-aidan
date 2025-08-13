@@ -1,7 +1,7 @@
 import { EvaluationResponse } from '../types/interview';
 
 class ApiService {
-  private baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://44.204.249.41:8000';
+  private baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://44-204-249-41.sslip.io';
 
   async validatePasscode(passcode: string, session_id: string): Promise<{ valid: boolean; sessionId?: string; candidate_id?: string }> {
 
