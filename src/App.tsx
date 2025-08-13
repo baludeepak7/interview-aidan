@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { LandingPage } from './pages/LandingPage';
@@ -8,10 +7,11 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/interview-aidan">
       <div className="App">
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/:sessionId" element={<LandingPage />} />
           <Route path="/interview/:sessionId" element={<InterviewPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

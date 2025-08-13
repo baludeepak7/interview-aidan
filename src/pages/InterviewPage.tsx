@@ -27,9 +27,11 @@ export const InterviewPage: React.FC = () => {
     currentTranscript,
     isInitialized,
     isWaitingForResponse,
+    isMicEnabled,
     initializeInterview,
     stopAllAudio,
-    handleSpeechResult
+    handleSpeechResult,
+    handleMicToggle: interviewHandleMicToggle
   } = useInterview(sessionId || '');
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export const InterviewPage: React.FC = () => {
     }
 
     if (!isInitialized) {
-      initializeInterview();
+      initializeInterview(sessionId);
     }
   }, [sessionId, isInitialized, initializeInterview, navigate]);
 
@@ -51,12 +53,10 @@ export const InterviewPage: React.FC = () => {
   }, [stopAllAudio]);
 
   const handleMicToggle = (enabled: boolean) => {
+    interviewHandleMicToggle(enabled);
+    
     if (enabled) {
-      if (isWaitingForResponse) {
-        toast.info('Microphone enabled - speak your answer');
-      } else {
-        toast.info('Microphone enabled');
-      }
+      toast.info('Microphone enabled');
     } else {
       toast.info('Microphone muted');
     }
@@ -101,7 +101,7 @@ export const InterviewPage: React.FC = () => {
     return null;
   }
 
-  if (!isInitialized && state !== 'playing-question') {
+  if (!isInitialized) {
     return (
       <div className="interview-loading min-vh-100 d-flex align-items-center justify-content-center bg-teams-dark">
         <div className="text-center text-white">

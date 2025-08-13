@@ -22,6 +22,15 @@ class AudioService {
   }
 
   async speakText(text: string): Promise<void> {
+    console.log('Speaking text from audio service:', text);
+    if (!this.synthesis) {
+        reject(new Error('Speech synthesis not supported'));
+        return;
+      }
+
+      // Cancel any currently speaking utterances
+      this.synthesis.cancel();
+      
     return new Promise((resolve, reject) => {
       if (!this.synthesis) {
         reject(new Error('Speech synthesis not supported'));
@@ -38,7 +47,10 @@ class AudioService {
         utterance.pitch = 1;
         utterance.volume = 0.8;
 
-        utterance.onend = () => resolve();
+        utterance.onend = () => {
+          // Add a small delay to ensure speech has completely finished
+          setTimeout(() => resolve(), 500);
+        };
         utterance.onerror = (event) => {
           // Don't reject on interrupted error if we cancelled it
           if (event.error === 'interrupted') {
@@ -49,12 +61,13 @@ class AudioService {
         };
 
         this.synthesis.speak(utterance);
-      }, 100);
+      }, 200);
     });
   }
 
   async startRecording(): Promise<string> {
     return new Promise((resolve, reject) => {
+      console.log('Audio service: Starting audio recording...');
       if (!this.recognition) {
         reject(new Error('Speech recognition not supported'));
         return;

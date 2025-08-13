@@ -1,62 +1,74 @@
 import { EvaluationResponse } from '../types/interview';
 
 class ApiService {
-  private baseUrl = '/api';
+  private baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://44.204.249.41:8000';
 
-  async validatePasscode(passcode: string): Promise<{ valid: boolean; sessionId?: string; candidateName?: string }> {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  async validatePasscode(passcode: string, session_id: string): Promise<{ valid: boolean; sessionId?: string; candidate_id?: string }> {
+
+    const response = await fetch(`${this.baseUrl}/api/v1/validate/passcode`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        passcode: passcode,
+        session_id: session_id
+      })
+    });
     
-    const validCodes = {
-      'DEMO123': { sessionId: 'sess_001', candidateName: 'John Doe' },
-      'TEST456': { sessionId: 'sess_002', candidateName: 'Jane Smith' },
-      'INTERVIEW': { sessionId: 'sess_003', candidateName: 'Alex Johnson' }
-    };
+    if (!response.ok) {
+      throw new Error('Failed to validate passcode');
+    }
 
-    const result = validCodes[passcode as keyof typeof validCodes];
-    return result ? { valid: true, ...result } : { valid: false };
+    const result = await response.json();
+    const bearerToken = result.access_token;
+    if (bearerToken) {
+      localStorage.setItem('access_token', bearerToken);
+    }
+    result.sessionId = session_id;
+    return result.status === 'success' ? { valid: true, ...result } : { valid: false };
   }
 
-  async evaluateAnswer(sessionId: string, question: string, answer: string): Promise<EvaluationResponse> {
-    // Simulate API call with variable delay
-    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
-    
-    const responses = [
-      {
-        feedback: "Great answer! Your experience with React and TypeScript shows strong technical foundation. I particularly liked how you mentioned component lifecycle management.",
-        score: 8.5,
-        nextQuestion: "Can you walk me through how you would optimize a React application for performance?",
-        isComplete: false
+  async evaluateAnswer(question: string, answer: string): Promise<EvaluationResponse> {
+    const resp = await fetch(`${this.baseUrl}/api/v1/interview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`
       },
-      {
-        feedback: "Good explanation. Your understanding of state management is solid. However, consider mentioning useCallback and useMemo for optimization.",
-        score: 7.2,
-        nextQuestion: "Tell me about a challenging bug you've encountered and how you debugged it.",
-        isComplete: false
-      },
-      {
-        feedback: "Excellent problem-solving approach! Your systematic debugging methodology demonstrates senior-level thinking.",
-        score: 9.1,
-        nextQuestion: "How do you ensure code quality and maintainability in your projects?",
-        isComplete: false
-      },
-      {
-        feedback: "Thank you for sharing your insights on code quality. Based on our conversation, you've demonstrated strong technical skills and problem-solving abilities. We'll be in touch soon!",
-        score: 8.8,
-        nextQuestion: "",
-        isComplete: true
-      }
-    ];
+      body: JSON.stringify({
+        candidate_answer: answer,
+        ai_question: question
+      })
+    });
 
-    return responses[0];
+    const data = await resp.json();
+    const response =   {
+        feedback: "",
+        score: 0,
+        nextQuestion: data.ai_question==null?data.ai_question : data.ai_question,
+        isComplete: data.interview_completed===true?true : false,
+        audio_base64: data.audio_base64 || ""
+      };
+
+    return response;
   }
 
   async getInitialQuestion(): Promise<string> {
-    const questions = [
-      "Tell me about yourself and your experience with React development."
-    ];
-    
-    return questions[0];
+      const resp = await fetch(`${this.baseUrl}/api/v1/interview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`
+      },
+      body: JSON.stringify({
+        candidate_answer: "start the interview",
+        ai_question: "",
+        "remaining_minutes": "15"
+      })
+    });
+    const response = await resp.json();    
+    return response.ai_question;
   }
 }
 

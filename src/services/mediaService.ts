@@ -1,10 +1,10 @@
 class MediaService {
   private localStream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
-  private mediaRecorder: MediaRecorder | null = null;
   private recognition: SpeechRecognition | null = null;
   private isRecognitionActive = false;
   private onTranscriptCallback: ((text: string) => void) | null = null;
+  private transcriptBuffer: string = ''; 
 
   constructor() {
     this.initializeSpeechRecognition();
@@ -23,20 +23,24 @@ class MediaService {
       this.recognition.lang = 'en-US';
       
       this.recognition.onresult = (event) => {
-        let finalTranscript = '';
+        let newFinal = '';
         let interimTranscript = '';
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcript;
+            newFinal += transcript;
           } else {
             interimTranscript += transcript;
           }
         }
+
+      if (newFinal) {
+        this.transcriptBuffer += ' ' + newFinal;
+      }
         
-        if (finalTranscript && this.onTranscriptCallback) {
-          this.onTranscriptCallback(finalTranscript);
+        if (this.onTranscriptCallback) {
+          this.onTranscriptCallback((this.transcriptBuffer + ' ' + interimTranscript).trim());
         }
       };
 
@@ -46,6 +50,10 @@ class MediaService {
     }
   }
 
+   clearTranscriptBuffer() {
+    this.transcriptBuffer = '';
+  }
+  
   async initializeMedia(): Promise<{ video: boolean; audio: boolean }> {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
@@ -94,10 +102,8 @@ class MediaService {
         const isEnabled = audioTracks[0].enabled;
         audioTracks[0].enabled = !isEnabled;
         
-        // Start/stop speech recognition based on audio state
-        if (!isEnabled) {
-          this.startSpeechRecognition();
-        } else {
+        // Stop speech recognition when audio is disabled
+        if (isEnabled) {
           this.stopSpeechRecognition();
         }
         
@@ -109,6 +115,7 @@ class MediaService {
 
   startSpeechRecognition(onTranscript?: (text: string) => void) {
     if (this.recognition && !this.isRecognitionActive) {
+      console.log('Media service: Starting speech recognition...');
       this.onTranscriptCallback = onTranscript || null;
       this.recognition.start();
       this.isRecognitionActive = true;
@@ -122,28 +129,54 @@ class MediaService {
     }
   }
 
-  async speakText(text: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!window.speechSynthesis) {
-        reject(new Error('Speech synthesis not supported'));
-        return;
-      }
+async speakText(base64String: string): Promise<void> {
+  // Decode base64 → Uint8Array
+  const bytes = Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: "audio/mpeg" });
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  audio.preload = "auto";
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 0.8;
+  try {
+    // Some browsers reject play() until user gesture — catch that separately
+    await audio.play();
 
-      utterance.onend = () => resolve();
-      utterance.onerror = (event) => reject(new Error(`Speech synthesis error: ${event.error}`));
+    // Wait until playback completes
+    await new Promise<void>((resolve, reject) => {
+      const handleEnded = () => {
+        cleanup();
+        resolve();
+      };
+      const handleError = (e: Event) => {
+        cleanup();
+        reject(e);
+      };
+      const cleanup = () => {
+        audio.removeEventListener("ended", handleEnded);
+        audio.removeEventListener("error", handleError);
+        URL.revokeObjectURL(url);
+      };
 
-      window.speechSynthesis.speak(utterance);
+      audio.addEventListener("ended", handleEnded, { once: true });
+      audio.addEventListener("error", handleError, { once: true });
     });
+  } catch (err) {
+    // e.g., autoplay blocked or interrupted
+    URL.revokeObjectURL(url);
+    throw err;
   }
+}
+
 
   stopSpeaking() {
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
+    }
+  }
+  
+    stopRecording() {
+    if (this.recognition) {
+      this.recognition.stop();
     }
   }
 

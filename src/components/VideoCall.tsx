@@ -33,16 +33,17 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   }, []);
 
   useEffect(() => {
+    // Only start speech recognition if mic is on, media is initialized, 
+    // we're in recording state, and not during AI speaking
     if (isMicOn && mediaInitialized && state === 'recording') {
+      console.log('state here --'+state)
       mediaService.startSpeechRecognition((transcript) => {
         setCurrentTranscript(transcript);
         onTranscript(transcript);
       });
     } else {
       mediaService.stopSpeechRecognition();
-      if (state !== 'recording') {
-        setCurrentTranscript('');
-      }
+      setCurrentTranscript('');
     }
   }, [isMicOn, mediaInitialized, state, onTranscript]);
 
@@ -65,6 +66,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const handleMicToggle = () => {
     const newState = mediaService.toggleAudio();
     setIsMicOn(newState);
+    setCurrentTranscript(''); // Clear transcript when toggling mic
     onMicToggle(newState);
   };
 
@@ -104,10 +106,20 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                   <div className="ai-avatar mb-3">
                     <div className="avatar-circle bg-gradient-primary d-inline-flex align-items-center justify-content-center"
                          style={{ width: '120px', height: '120px', borderRadius: '50%' }}>
-                      <i className="bi bi-robot" style={{ fontSize: '3.5rem' }}></i>
+                      <img
+  src="https://randomuser.me/api/portraits/men/32.jpg"
+  alt="Human Interviewer"
+  style={{
+    width: '120px',
+    height: '120px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.10)'
+  }}
+/>
                     </div>
                   </div>
-                  <h4 className="mb-2 fw-semibold">AI Interviewer</h4>
+                  <h4 className="mb-2 fw-semibold">Aidan</h4>
                   <div className={`status-badge badge bg-${stateInfo.color} px-3 py-2 rounded-pill`}>
                     <i className={`bi bi-${stateInfo.icon} me-2`}></i>
                     {stateInfo.text}
@@ -120,7 +132,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                 <div className="d-flex justify-content-between align-items-end">
                   <div className="participant-info bg-dark bg-opacity-75 text-white px-3 py-2 rounded-pill">
                     <i className="bi bi-robot me-2"></i>
-                    <small className="fw-medium">AI Interviewer</small>
+                    <small className="fw-medium">Aidan</small>
                   </div>
                   {state === 'playing-question' && (
                     <div className="speaking-indicator bg-info text-white px-3 py-2 rounded-pill">

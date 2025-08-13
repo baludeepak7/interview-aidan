@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../services/apiService';
-import { LoadingSpinner } from '../components/LoadingSpinner';
 import { toast } from 'react-toastify';
 
 export const LandingPage: React.FC = () => {
+  const { sessionId } = useParams<{ sessionId: string }>();
   const [passcode, setPasscode] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState('');
@@ -22,12 +22,12 @@ export const LandingPage: React.FC = () => {
     setError('');
 
     try {
-      const result = await apiService.validatePasscode(passcode.toUpperCase());
-      
+      const result = await apiService.validatePasscode(passcode,sessionId || '');
+      console.log('Validation result:', result);
       if (result.valid && result.sessionId) {
-        toast.success(`Welcome, ${result.candidateName}!`);
+        toast.success(`Welcome, ${result.candidate_id}!`);
         navigate(`/interview/${result.sessionId}`, { 
-          state: { candidateName: result.candidateName } 
+          state: { candidateName: result.candidate_id } 
         });
       } else {
         setError('Invalid passcode. Please check and try again.');
@@ -71,7 +71,7 @@ export const LandingPage: React.FC = () => {
                       className={`form-control form-control-lg ${error ? 'is-invalid' : ''}`}
                       value={passcode}
                       onChange={(e) => {
-                        setPasscode(e.target.value.toUpperCase());
+                        setPasscode(e.target.value);
                         setError('');
                       }}
                       placeholder="Enter your passcode"
@@ -110,19 +110,6 @@ export const LandingPage: React.FC = () => {
                   <small className="text-muted">
                     Need help? Contact your interviewer for assistance
                   </small>
-                </div>
-
-                {/* Demo Instructions */}
-                <div className="mt-4 p-3 bg-light rounded">
-                  <h6 className="text-primary mb-2">
-                    <i className="bi bi-info-circle me-1"></i>
-                    Demo Passcodes
-                  </h6>
-                  <div className="small text-muted">
-                    <div>• <code>DEMO123</code> - John Doe</div>
-                    <div>• <code>TEST456</code> - Jane Smith</div>
-                    <div>• <code>INTERVIEW</code> - Alex Johnson</div>
-                  </div>
                 </div>
               </div>
             </div>

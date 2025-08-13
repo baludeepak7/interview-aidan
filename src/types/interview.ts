@@ -20,6 +20,7 @@ export interface EvaluationResponse {
   score: number;
   nextQuestion: string;
   isComplete: boolean;
+  audio_base64: string;
 }
 
 export type InterviewState = 
